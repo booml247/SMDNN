@@ -1,9 +1,10 @@
 #' @title Train a Local CNN
-#' @description The function build a local convolutional neural network for Split and Merge Deep Neural Network (SM-DNN).
+#' @description The function build a local convolutional neural network in Split and Merge Deep Neural Network (SM-DNN) for nonlinear sufficience dimension reduction.
 #' @param trainMat  A genotype matrix (N x M; N individuals, M markers) for training model.
 #' @param trainPheno  Vector (N * 1) of phenotype for training model.
 #' @param validMat A genotype matrix for validing trained model.
 #' @param validPheno Vector (N * 1) of phenotype for validing trained model.
+#' @param type (String) CNN can be used as a classification machine or a regression machine. Depending of whether y is a factor or not, the default setting for type is C-classification or eps-regression, respectively.
 #' @param markerImage  (String)  This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
 #'if the image size exceeds the original snp number, 0 will be polished the lack part,
 #' if the image size is less than the original snp number, the last snp(s) will be descaled.
@@ -71,16 +72,18 @@
 #'
 #' markerImage = paste0("1*",ncol(trainMat))
 #'
-#' trainGSmodel <- train_deepGSModel(trainMat = trainMat,trainPheno = trainPheno,
+#' localmodel <- train_localCNN(trainMat = trainMat,trainPheno = trainPheno,
 #'                 validMat = validMat,validPheno = validPheno, markerImage = markerImage,
 #'                 cnnFrame = cnnFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
 #'                 num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
 #'                 momentum = 0.5,wd = 0.00001, randomseeds = 0,initializer_idx = 0.01,
 #'                 verbose =TRUE)
-#' predscores <- predict_GSModel(GSModel = trainGSmodel,testMat = Markers[testIdx,],
-#'               markerImage = markerImage )
+#' localCNN <- trainlocalCNN[1]
+#' hidden_train <- trainlocalCNN[2]
+#' hidden_valid <- trainlocalCNN[3]
 
-train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testPheno,markerImage = NULL,dnnFrame,device_type = "cpu",gpuNum = "max",
+
+train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,type,markerImage = NULL,cnnFrame,device_type = "cpu",gpuNum = "max",
                               eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
                               momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
@@ -102,10 +105,8 @@ train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testP
   markerImage <- as.numeric(unlist(strsplit(markerImage,"\\*")))
   trainMat <- t(trainMat)
   validMat <- t(validMat)
-  testMat  <- t(testMat)
   dim(trainMat) <- c(markerImage[1], markerImage[2],1,ncol(trainMat))
   dim(validMat) <- c(markerImage[1], markerImage[2],1,ncol(validMat))
-  dim(testMat)  <- c(markerImage[1], markerImage[2],1,ncol(testMat))
   eval.data <- list(data=validMat, label=validPheno)
   # extract Convolution set from the cnn frame list.
   conv_kernel <- unlist(strsplit(cnnFrame$conv_kernel,"\\*"))
@@ -183,17 +184,23 @@ train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testP
     assign(paste0("drop_layer",fullayer_num),mx.symbol.Dropout(data= get(paste0("fullconnect_layer",fullayer_num)), p = drop_float[fullayer_num +1]))
   }
 
+  if(type == "eps"){
+    cnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
+  } else{
+    # softmax output layer
+    outLayer <- mx.symbol.FullyConnected(data= get(paste0("drop_layer",fullayer_num)), num_hidden=1)
+    #cnn_nerwork <- mx.symbol.sigmoid(outLayer)
+    cnn_nerwork <- mx.symbol.LogisticRegressionOutput(outLayer)
+  }
 
-  cnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
   # Group some output layers for future analysis
   out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, cnn_nerwork))
   # Create an executor
   executor_train <- mx.simple.bind(symbol=out, data=dim(trainMat), ctx=mx.cpu())
   executor_valid <- mx.simple.bind(symbol=out, data=dim(validMat), ctx=mx.cpu())
-  executor_test  <- mx.simple.bind(symbol=out, data=dim( testMat), ctx=mx.cpu())
 
   if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
-  trainGSmodel <- mx.model.FeedForward.create(cnn_nerwork, X=trainMat, y=trainPheno,eval.data = eval.data,
+  trainlocalCNN <- mx.model.FeedForward.create(cnn_nerwork, X=trainMat, y=trainPheno,eval.data = eval.data,
                                               ctx= device, num.round= num_round, array.batch.size=array_batch_size,
                                               learning.rate=learning_rate, momentum=momentum, wd=wd,
                                               eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),
@@ -203,23 +210,19 @@ train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testP
 
 
   # Update parameters
-  mx.exec.update.arg.arrays(executor_train, trainGSmodel$arg.params, match.name=TRUE)
-  mx.exec.update.arg.arrays(executor_valid, trainGSmodel$arg.params, match.name=TRUE)
-  mx.exec.update.arg.arrays(executor_test , trainGSmodel$arg.params, match.name=TRUE)
+  mx.exec.update.arg.arrays(executor_train, trainlocalCNN$arg.params, match.name=TRUE)
+  mx.exec.update.arg.arrays(executor_valid, trainlocalCNN$arg.params, match.name=TRUE)
 
-  mx.exec.update.aux.arrays(executor_train, trainGSmodel$aux.params, match.name=TRUE)
-  mx.exec.update.aux.arrays(executor_valid, trainGSmodel$aux.params, match.name=TRUE)
-  mx.exec.update.aux.arrays(executor_test , trainGSmodel$aux.params, match.name=TRUE)
+  mx.exec.update.aux.arrays(executor_train, trainlocalCNN$aux.params, match.name=TRUE)
+  mx.exec.update.aux.arrays(executor_valid, trainlocalCNN$aux.params, match.name=TRUE)
 
 
   # Select data to use
   mx.exec.update.arg.arrays(executor_train, list(data=mx.nd.array(trainMat)), match.name=TRUE)
   mx.exec.update.arg.arrays(executor_valid, list(data=mx.nd.array(validMat)), match.name=TRUE)
-  mx.exec.update.arg.arrays(executor_test , list(data=mx.nd.array(testMat)) , match.name=TRUE)
   # Do a forward pass with the current parameters and data
   mx.exec.forward(executor_train, is.train=FALSE)
   mx.exec.forward(executor_valid, is.train=FALSE)
-  mx.exec.forward(executor_test, is.train=FALSE)
   # List of outputs available.
   names(executor_train$ref.outputs)
 
@@ -227,25 +230,7 @@ train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testP
   hidden_dropout_train <- as.array(executor_train$ref.outputs[3])
   hidden_valid <- as.array(executor_valid$ref.outputs[2])
   hidden_dropout_valid <- as.array(executor_valid$ref.outputs[3])
-  hidden_test <- as.array(executor_test$ref.outputs[2])
-  hidden_dropout_test <- as.array(executor_test$ref.outputs[3])
 
-  #Prediction
-  markerImage = paste0("1*",ncol(trainMat))
-  dim(testMat) <- dim(testMat)[c(2,4)]
-  testMat <- t(testMat)
-  predscores <- predict_GSModel(GSModel = trainGSmodel,testMat = testMat,
-                                markerImage = markerImage )
-  #Performance evaluation
-
-  refer_value <- runif(100)
-  pred_value <- sin(refer_value) + cos(refer_value)
-  print(meanNDCG(realScores = refer_value,predScores = pred_value, topAlpha = 10))
-
-  predMat <- cbind(testPheno, t(predscores))
-  colnames(predMat) <- c("real", "DeepGS")
-  print(cor(predMat))
-
-  res <- list(hidden_train, hidden_dropout_train, hidden_valid, hidden_dropout_valid, hidden_test, hidden_dropout_test)
+  res <- list(trainlocalCNN, hidden_train, hidden_valid)
   return(res)
 }
