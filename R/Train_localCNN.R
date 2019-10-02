@@ -1,18 +1,13 @@
-#' @title Build a Split and Merge Deep Neural Network (SM-DNN) for phenotype prediction
-#' @description The function applies split and merge techniques to the deep neural network to build a phenotype prediction model.
+#' @title Train a Local CNN
+#' @description The function build a local convolutional neural network for Split and Merge Deep Neural Network (SM-DNN).
 #' @param trainMat  A genotype matrix (N x M; N individuals, M markers) for training model.
 #' @param trainPheno  Vector (N * 1) of phenotype for training model.
 #' @param validMat A genotype matrix for validing trained model.
 #' @param validPheno Vector (N * 1) of phenotype for validing trained model.
-#' @param markerImage  (String) This parameter is only for SM-DeepGS. This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
+#' @param markerImage  (String)  This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
 #'if the image size exceeds the original snp number, 0 will be polished the lack part,
 #' if the image size is less than the original snp number, the last snp(s) will be descaled.
-#' @param dnnFrame  A list containing the following element for local networks.
-#' Feed-forward neural network (FNN) framework:
-#' \itemize{
-#'     \item{}{}
-#' }
-#' Convolutional neural network (CNN) framework:
+#' @param cnnFrame  A list containing the following element for Convolutional neural network (CNN) framework:
 #' \itemize{
 #'     \item{conv_kernel:} {A vector (K * 1) gives convolutional kernel sizes (width x height) to filter image matrix for K convolutional layers, respectively. }
 #'     \item{conv_num_filter:} { A vector (K * 1) gives number of convolutional kernels for K convolutional layers, respectively.}
@@ -85,7 +80,7 @@
 #' predscores <- predict_GSModel(GSModel = trainGSmodel,testMat = Markers[testIdx,],
 #'               markerImage = markerImage )
 
-train_deepGSModel <- function(trainMat,trainPheno,validMat,validPheno,testMat,testPheno,markerImage = NULL,dnnFrame,device_type = "cpu",gpuNum = "max",
+train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,testMat,testPheno,markerImage = NULL,dnnFrame,device_type = "cpu",gpuNum = "max",
                               eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
                               momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
@@ -187,14 +182,6 @@ train_deepGSModel <- function(trainMat,trainPheno,validMat,validPheno,testMat,te
     assign(paste0("fullconnect_layer",fullayer_num),mx.symbol.FullyConnected(data= get(paste0("drop_layer",ss)), num_hidden= fullayer_num_hidden[fullayer_num]))
     assign(paste0("drop_layer",fullayer_num),mx.symbol.Dropout(data= get(paste0("fullconnect_layer",fullayer_num)), p = drop_float[fullayer_num +1]))
   }
-
-  # # cnn network
-  # cnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
-  # # Group some hidden layers outputs for further analysis
-  # out <- mx.symbol.Group(c(fullconnect_layer1, drop_layer1,cnn_nerwork))
-  # # Create an executor
-  # executor <- mx.simple.bind(symbol=out, data=dim(trainMat), ctx=mx.cpu())
-  # executor <- mx.simple.bind(symbol=out, data=dim(validMat), ctx=mx.cpu())
 
 
   cnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
