@@ -4,10 +4,15 @@
 #' @param trainPheno  Vector (N * 1) of phenotype for training model.
 #' @param validMat A genotype matrix for validing trained model.
 #' @param validPheno Vector (N * 1) of phenotype for validing trained model.
-#' @param markerImage  (String) This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
+#' @param markerImage  (String) This parameter is only for SM-DeepGS. This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
 #'if the image size exceeds the original snp number, 0 will be polished the lack part,
 #' if the image size is less than the original snp number, the last snp(s) will be descaled.
-#' @param cnnFrame  A list containing the following element for convolutional neural network (CNN) framework:
+#' @param dnnFrame  A list containing the following element for local networks.
+#' Feed-forward neural network (FNN) framework:
+#' \itemize{
+#'     \item{}{}
+#' }
+#' Convolutional neural network (CNN) framework:
 #' \itemize{
 #'     \item{conv_kernel:} {A vector (K * 1) gives convolutional kernel sizes (width x height) to filter image matrix for K convolutional layers, respectively. }
 #'     \item{conv_num_filter:} { A vector (K * 1) gives number of convolutional kernels for K convolutional layers, respectively.}
@@ -35,7 +40,7 @@
 #' @param verbose  logical (default=TRUE) Specifies whether to print information on the iterations during training.
 #' @param \dots Parameters for construncting neural networks used in package "mxnet" (\url{http://mxnet.io/}).
 #'
-#' @author Chuang Ma , Zhixu Qiu, Qian Cheng and Wenlong Ma
+#' @author Siqi Liang
 #' @export
 #' @examples
 #' data(wheat_example)
@@ -80,7 +85,7 @@
 #' predscores <- predict_GSModel(GSModel = trainGSmodel,testMat = Markers[testIdx,],
 #'               markerImage = markerImage )
 
-train_deepGSModel <- function(trainMat,trainPheno,validMat,validPheno,testMat,testPheno,markerImage,cnnFrame,device_type = "cpu",gpuNum = "max",
+train_deepGSModel <- function(trainMat,trainPheno,validMat,validPheno,testMat,testPheno,markerImage = NULL,dnnFrame,device_type = "cpu",gpuNum = "max",
                               eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
                               momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
