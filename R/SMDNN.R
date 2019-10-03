@@ -29,7 +29,12 @@
 #'     \item{fullayer_act_type:} {A numeric ((H-1) * 1) selecting types of active function from "relu", "sigmoid", "softrelu" and "tanh" for full connected layers.}
 #'     \item{drop_float:} {Numeric.}
 #' }
-#' @param globalFrame A vector indicating the framework of the global network. It should contain the number of units in each hidden layer as well as the output layer e.g.c(30,20,10,2) denote a feedforward neural network with three hidden layers and two output nodes, where the number of hidden units in each hidden layer is 30, 20 and 10, respectively.
+#' @param globalFrame A list containing the following element for global networks.
+#' \itemize{
+#'     \item {fullayer_num_hidden:} {A numeric (H * 1) number of hidden neurons for H full connected layers, respectively.}
+#'     \item{fullayer_act_type:} {A numeric ((H-1) * 1) selecting types of active function from "relu", "sigmoid", "softrelu" and "tanh" for full connected layers.}
+#'     \item{drop_float:} {Numeric.}
+#' }
 #' @param device_type  Selecting "cpu" or "gpu" device to  construct predict model.
 #' @param gpuNum  (Integer) Number of GPU devices, if using multiple GPU (gpuNum > 1), the parameter momentum must greater than 0.
 #' @param eval_metric (String) A approach for evaluating the performance of training process, it include "mae", "rmse" and "accuracy", default "mae".
@@ -78,7 +83,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,mark
       localnet <- train_localCNN(trainMat = trainMat_sub, trainPheno = trainPheno,
                                  validMat = validMat_sub, validPheno = validPheno,
                                  type = type, markerImage = markerImage,
-                                 cnnFrame = dnnFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
+                                 cnnFrame = localFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
                                  num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
                                  momentum = 0.5,wd = 0.00001, randomseeds = randomseeds, initializer_idx = 0.01,
                                  verbose = TRUE)
@@ -88,41 +93,76 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,mark
       SMDNN_model <- append(SMDNN, paste0("localnet",nn))
 
       #extract and merge the last hidden layer of local networks
-      hidden_train <- cbind(hidden_train, localnet[2])
-      hidden_valid <- cbind(hidden_valid, localnet[3])
+      hidden_train <- rbind(hidden_train, localnet[2])
+      hidden_valid <- rbind(hidden_valid, localnet[3])
     } else{
       #####################FNN######################
     }
   }
 
   ###############Train Global Networks##############
-  if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
-  if(type == "eps"){
-    fullayer_num <- length(globalFrame)
-    data <- mx.symbol.Variable("data")
-    for(ss in 1:max(c(fullayer_num -1,1))){
-      if(ss == 1){
-        assign(paste0("fullconnect_layer",ss),mx.symbol.FullyConnected(data= data, num_hidden= fullayer_num_hidden[ss]))
+  hidden_train <- t(hidden_train)
+  hidden_valid <- t(hidden_valid)
+  eval.data <- list(data=hidden_valid, label=validPheno)
 
-      } else if(ss > 1){
-        assign(paste0("fullconnect_layer",ss),mx.symbol.FullyConnected(data= get(paste0("fullconnect_layer",ss -1)), num_hidden= fullayer_num_hidden[ss]))
-      }
-      #
-      if(fullayer_num == 1){
-        assign(paste0("drop_layer",ss),mx.symbol.Dropout(data= get(paste0("fullconnect_layer",ss)), p = drop_float[ss +1]))
-      }
-      #  performed below when more than more than one full connnect layer
-      if(fullayer_num > 1){
-        assign(paste0("fullconnect_Act",ss), mx.symbol.Activation(data= get(paste0("fullconnect_layer",ss)), act_type= fullayer_act_type[ss]))
-        #assign(paste0("drop_layer",ss),mx.symbol.Dropout(data= get(paste0("fullconnect_Act",ss)), p = drop_float[ss +1]))
-      }
-
-    }
-    globalnet <- mx.mlp(hidden_train, trainPheno, hidden_node=globalFrame[-length(glbalFrame)], out_node=globalFrame[length(glbalFrame)], out_activation="rmse", array.batch.size=array_batch_size, learning.rate=learning_rate, momentum=momentum, eval.metric=eval_metric)
-
-  } else{
-    globalnet <- mx.mlp(hidden_train, trainPheno, hidden_node=globalFrame[-length(glbalFrame)], out_node=globalFrame[length(glbalFrame)], out_activation="softmax", array.batch.size=array_batch_size, learning.rate=learning_rate, momentum=momentum, eval.metric=eval_metric)
+  # extract full connect set from the cnn frame list.
+  drop_float <- globalFrame$drop_float
+  fullayer_num_hidden <- globalFrame$fullayer_num_hidden
+  fullayer_act_type <- globalFrame$fullayer_act_type
+  if(length(fullayer_num_hidden) - length(fullayer_act_type) != 1){
+    stop("Error: the last full connected layer don't need activation.")
   }
+  conv_layer_num <- nrow(conv_kernel)
+  fullayer_num <- length(fullayer_num_hidden)
+  if(fullayer_num_hidden[fullayer_num] != 1){
+    stop("Error: the last full connected layer's number of hidden nerurons must is one.")
+  }
+  if(length(drop_float)- length(fullayer_num_hidden) != 1){
+    stop("Error:  the number of dropout layers must one more layer than the full connected  layers.")
+  }
+  # set full connect frame
+  fullayer_num <- length(globalFrame)
+  data <- mx.symbol.Variable("data")
+  for(ss in 1:max(c(fullayer_num -1,1))){
+    if(ss == 1){
+      assign(paste0("fullconnect_layer",ss),mx.symbol.FullyConnected(data= data, num_hidden= fullayer_num_hidden[ss]))
+
+    } else if(ss > 1){
+      assign(paste0("fullconnect_layer",ss),mx.symbol.FullyConnected(data= get(paste0("drop_layer",ss -1)), num_hidden= fullayer_num_hidden[ss]))
+    }
+    #
+    if(fullayer_num == 1){
+      assign(paste0("drop_layer",ss),mx.symbol.Dropout(data= get(paste0("fullconnect_layer",ss)), p = drop_float[ss +1]))
+    }
+    #  performed below when more than more than one full connnect layer
+    if(fullayer_num > 1){
+      assign(paste0("fullconnect_Act",ss), mx.symbol.Activation(data= get(paste0("fullconnect_layer",ss)), act_type= fullayer_act_type[ss]))
+      assign(paste0("drop_layer",ss),mx.symbol.Dropout(data= get(paste0("fullconnect_Act",ss)), p = drop_float[ss +1]))
+    }
+
+  }
+  # performed below when more than one full connnect layer
+  if(fullayer_num > 1){
+    assign(paste0("fullconnect_layer",fullayer_num),mx.symbol.FullyConnected(data= get(paste0("drop_layer",ss)), num_hidden= fullayer_num_hidden[fullayer_num]))
+    assign(paste0("drop_layer",fullayer_num),mx.symbol.Dropout(data= get(paste0("fullconnect_layer",fullayer_num)), p = drop_float[fullayer_num +1]))
+  }
+
+  if(type == "eps"){
+    # linear output layer
+    dnn_network <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
+  } else{
+    # softmax output layer
+    outLayer <- mx.symbol.FullyConnected(data= get(paste0("drop_layer",fullayer_num)), num_hidden=1)
+    dnn_nerwork <- mx.symbol.LogisticRegressionOutput(outLayer)
+  }
+
+  if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
+  globalnet <- mx.model.FeedForward.create(dnn_nerwork, X=trainMat, y=trainPheno,eval.data = eval.data,
+                                           ctx= device, num.round= num_round, array.batch.size=array_batch_size,
+                                           learning.rate=learning_rate, momentum=momentum, wd=wd,
+                                           eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),
+                                           verbose = verbose,
+                                           epoch.end.callback=mx.callback.early.stop(bad.steps = 600,verbose = verbose))
 
   SMDNN_model <- apeend(SMDNN_model, globalnet)
   return(SMDNN_model)

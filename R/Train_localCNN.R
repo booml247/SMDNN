@@ -4,7 +4,7 @@
 #' @param trainPheno  Vector (N * 1) of phenotype for training model.
 #' @param validMat A genotype matrix for validing trained model.
 #' @param validPheno Vector (N * 1) of phenotype for validing trained model.
-#' @param type (String) CNN can be used as a classification machine or a regression machine. Depending of whether y is a factor or not, the default setting for type is C-classification or eps-regression, respectively.
+#' @param type (String) CNN can be used as a classification machine or a regression machine. Depending of whether trainPheno is a factor or not, the default setting for type is C-classification or eps-regression, respectively.
 #' @param markerImage  (String)  This gives a "i * j" image format that the (M x1) markers informations of each individual will be encoded.
 #'if the image size exceeds the original snp number, 0 will be polished the lack part,
 #' if the image size is less than the original snp number, the last snp(s) will be descaled.
@@ -73,7 +73,7 @@
 #' markerImage = paste0("1*",ncol(trainMat))
 #'
 #' localmodel <- train_localCNN(trainMat = trainMat,trainPheno = trainPheno,
-#'                 validMat = validMat,validPheno = validPheno, markerImage = markerImage,
+#'                 validMat = validMat,validPheno = validPheno, type = 'eps', markerImage = markerImage,
 #'                 cnnFrame = cnnFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
 #'                 num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
 #'                 momentum = 0.5,wd = 0.00001, randomseeds = 0,initializer_idx = 0.01,
