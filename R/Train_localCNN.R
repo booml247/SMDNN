@@ -185,22 +185,21 @@ train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,type,markerIm
   }
 
   if(type == "eps"){
-    cnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
+    cnn_network <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
   } else{
     # softmax output layer
     outLayer <- mx.symbol.FullyConnected(data= get(paste0("drop_layer",fullayer_num)), num_hidden=1)
-    #cnn_nerwork <- mx.symbol.sigmoid(outLayer)
-    cnn_nerwork <- mx.symbol.LogisticRegressionOutput(outLayer)
+    cnn_network <- mx.symbol.LogisticRegressionOutput(outLayer)
   }
 
   # Group some output layers for future analysis
-  out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, cnn_nerwork))
+  out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, cnn_network))
   # Create an executor
   executor_train <- mx.simple.bind(symbol=out, data=dim(trainMat), ctx=mx.cpu())
   executor_valid <- mx.simple.bind(symbol=out, data=dim(validMat), ctx=mx.cpu())
 
   if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
-  trainlocalCNN <- mx.model.FeedForward.create(cnn_nerwork, X=trainMat, y=trainPheno,eval.data = eval.data,
+  trainlocalCNN <- mx.model.FeedForward.create(cnn_network, X=trainMat, y=trainPheno,eval.data = eval.data,
                                               ctx= device, num.round= num_round, array.batch.size=array_batch_size,
                                               learning.rate=learning_rate, momentum=momentum, wd=wd,
                                               eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),

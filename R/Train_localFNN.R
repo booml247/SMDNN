@@ -76,29 +76,25 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   if(device_type == "cpu") { device <- mx.cpu()}
   if(device_type == "gpu") { ifelse(gpuNum == "max", device <- mx.gpu(),device <- lapply(0:(gpuNum -1), function(i) {  mx.gpu(i)}))}
 
-  trainMat <- t(trainMat)
-  validMat <- t(validMat)
-
+  eval.data <- list(data=validMat, label=validPheno)
 
 
   # extract full connect set from the fnn frame list.
-  drop_float <- globalFrame$drop_float
-  fullayer_num_hidden <- globalFrame$fullayer_num_hidden
-  fullayer_act_type <- globalFrame$fullayer_act_type
-  if(length(fullayer_num_hidden) - length(fullayer_act_type) != 1){
+  drop_float <- fnnFrame$drop_float
+  fullayer_num_hidden <- fnnFrame$fullayer_num_hidden
+  fullayer_act_type <- fnnFrame$fullayer_act_type
+  fullayer_num <- length(fullayer_num_hidden)
+  if(fullayer_num - length(fullayer_act_type) != 1){
     stop("Error: the last full connected layer don't need activation.")
   }
-  conv_layer_num <- nrow(conv_kernel)
-  fullayer_num <- length(fullayer_num_hidden)
   if(fullayer_num_hidden[fullayer_num] != 1){
     stop("Error: the last full connected layer's number of hidden nerurons must is one.")
   }
-  if(length(drop_float)- length(fullayer_num_hidden) != 1){
+  if(length(drop_float)- fullayer_num != 1){
     stop("Error:  the number of dropout layers must one more layer than the full connected  layers.")
   }
 
   # set full connect frame
-  fullayer_num <- length(globalFrame)
   data <- mx.symbol.Variable("data")
   for(ss in 1:max(c(fullayer_num -1,1))){
     if(ss == 1){
@@ -125,21 +121,20 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   }
 
   if(type == "eps"){
-    fnn_nerwork <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
+    fnn_network <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
   } else{
     # softmax output layer
-    outLayer <- mx.symbol.FullyConnected(data= get(paste0("drop_layer",fullayer_num)), num_hidden=1)
-    fnn_nerwork <- mx.symbol.LogisticRegressionOutput(outLayer)
+    fnn_network <- mx.symbol.SoftmaxOutput(data = get(paste0("drop_layer",fullayer_num)))
   }
 
   # Group some output layers for future analysis
-  out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, fnn_nerwork))
+  out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, fnn_network))
   # Create an executor
-  executor_train <- mx.simple.bind(symbol=out, data=dim(trainMat), ctx=mx.cpu())
-  executor_valid <- mx.simple.bind(symbol=out, data=dim(validMat), ctx=mx.cpu())
+  executor_train <- mx.simple.bind(symbol=out, data=dim(t(trainMat)), ctx=mx.cpu())
+  executor_valid <- mx.simple.bind(symbol=out, data=dim(t(validMat)), ctx=mx.cpu())
 
   if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
-  trainlocalFNN <- mx.model.FeedForward.create(fnn_nerwork, X=trainMat, y=trainPheno, eval.data = eval.data,
+  trainlocalFNN <- mx.model.FeedForward.create(fnn_network, X=trainMat, y=trainPheno, eval.data = eval.data,
                                                ctx= device, num.round= num_round, array.batch.size=array_batch_size,
                                                learning.rate=learning_rate, momentum=momentum, wd=wd,
                                                eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),
@@ -157,8 +152,8 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
 
 
   # Select data to use
-  mx.exec.update.arg.arrays(executor_train, list(data=mx.nd.array(trainMat)), match.name=TRUE)
-  mx.exec.update.arg.arrays(executor_valid, list(data=mx.nd.array(validMat)), match.name=TRUE)
+  mx.exec.update.arg.arrays(executor_train, list(data=mx.nd.array(t(trainMat))), match.name=TRUE)
+  mx.exec.update.arg.arrays(executor_valid, list(data=mx.nd.array(t(validMat))), match.name=TRUE)
   # Do a forward pass with the current parameters and data
   mx.exec.forward(executor_train, is.train=FALSE)
   mx.exec.forward(executor_valid, is.train=FALSE)

@@ -12,7 +12,7 @@
 
 SGMap <- function(data){
   #import the map dataset
-  gene <- read.table('R/SNP-VEP_res.txt',header = T)
+  gene <- read.table('data/SNP-VEP_res.txt',header = T)
   var <- as.character(data)
 
   res <- c()
