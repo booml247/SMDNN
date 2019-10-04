@@ -3,6 +3,7 @@
 #' @usage SGLink(data)
 #' @param data: (character) a vector containing the SNPs' ID e.g. "rs11316244"
 #' @return a matrix which descirbes the linkage bwtween SNPs and the genes
+#' #' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @examples
 #' data <- c("rs149619941", "rs71509458", "rs11316244")
 #' SGLink(data)

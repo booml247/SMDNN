@@ -36,7 +36,7 @@
 #' @param verbose  logical (default=TRUE) Specifies whether to print information on the iterations during training.
 #' @param \dots Parameters for construncting neural networks used in package "mxnet" (\url{http://mxnet.io/}).
 #'
-#' @author Siqi Liang
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @export
 #' @examples
 #' data(wheat_example)

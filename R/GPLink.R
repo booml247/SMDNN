@@ -3,6 +3,7 @@
 #' @usage GPLink(data)
 #' @param data: a vector containing the SNPs' ID e.g. "rs11316244"
 #' @param systemCode (character) The BridgeDb code associated with the data source or system (default: "En"), e.g., En (Ensembl), L (Entrez), Ch (HMDB), etc. See column two of https://github.com/bridgedb/BridgeDb/blob/master/org.bridgedb.bio/resources/org/bridgedb/bio/datasources.txt.
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @return a matrix which descirbes the linkage bwtween SNPs and the genes
 #' @examples
 #' data <- c("ENSG00000153574", "ENSG00000232810", "ENSG00000230023")

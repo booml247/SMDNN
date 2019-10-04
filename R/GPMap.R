@@ -4,6 +4,7 @@
 #' @param data: (character) A vector containing the official ID specified by a data source or system e.g. "ENSG00000230021".
 #' @param systemCode (character) The BridgeDb code associated with the data source or system (default: "En"), e.g., En (Ensembl), L (Entrez), Ch (HMDB), etc. See column two of https://github.com/bridgedb/BridgeDb/blob/master/org.bridgedb.bio/resources/org/bridgedb/bio/datasources.txt.
 #' @return A dataframe which contains the genes with the corresponding pathways.
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @examples
 #' data <- c("ENSG00000153574", "ENSG00000232810", "ENSG00000230023")
 #' GPMap(data, 'En')

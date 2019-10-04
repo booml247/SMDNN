@@ -10,7 +10,9 @@
 #' @param localFrame  A list containing the following element for local networks.
 #' Feedforward neural network (FNN) framework:
 #' \itemize{
-#'     \item{}{}
+#'     \item{fullayer_num_hidden:}{A numeric (H * 1) number of hidden neurons for H full connected layers, respectively.}
+#'     \item{fullayer_act_type:}{A numeric ((H-1) * 1) selecting types of active function from "relu", "sigmoid", "softrelu" and "tanh" for full connected layers.}
+#'     \item{drop_float:}{A numeric ((H+1) * 1) number setting the dropout rate of each layer in the networks}
 #' }
 #' Convolutional neural network (CNN) framework:
 #' \itemize{
@@ -22,37 +24,52 @@
 #'     \item{pool_type:} {A character (K * 1) types of K pooling layers select from "avg", "max", "sum", respectively.}
 #'     \item{pool_kernel:} {A character (K * 1) K pooling kernel sizes (width * height) for K pooling layers. }
 #'     \item{pool_stride:} {A Character (K * 1) strides for K pooling kernels.}
-#'     \item{fullayer_num_hidden:} {A numeric (H * 1) number of hidden neurons for H full connected layers, respectively.
-#'     The last full connected layer's number of hidden nerurons must is one.  }
+#'     \item{fullayer_num_hidden:} {A numeric (H * 1) number of hidden neurons for H full connected layers, respectively.}
 #'     \item{fullayer_act_type:} {A numeric ((H-1) * 1) selecting types of active function from "relu", "sigmoid", "softrelu" and "tanh" for full connected layers.}
-#'     \item{drop_float:} {Numeric.}
+#'     \item{drop_float:} {A numeric ((H+1) * 1) number setting the dropout rate of fully connected layer in the networks}
 #' }
 #' @param globalFrame A list containing the following element for global networks.
 #' \itemize{
 #'     \item {fullayer_num_hidden:} {A numeric (H * 1) number of hidden neurons for H full connected layers, respectively.}
 #'     \item{fullayer_act_type:} {A numeric ((H-1) * 1) selecting types of active function from "relu", "sigmoid", "softrelu" and "tanh" for full connected layers.}
-#'     \item{drop_float:} {Numeric.}
+#'     \item{drop_float:} {A numeric ((H+1) * 1) number setting the dropout rate of each layer in the networks}
 #' }
 #' @param device_type  Selecting "cpu" or "gpu" device to  construct predict model.
 #' @param gpuNum  (Integer) Number of GPU devices, if using multiple GPU (gpuNum > 1), the parameter momentum must greater than 0.
 #' @param eval_metric (String) A approach for evaluating the performance of training process, it include "mae", "rmse" and "accuracy", default "mae".
-#' @param num_round (Integer) The number of iterations over training data to train the model, default = 10.
-#' @param  array_batch_size (Integer) It defines number of samples that going to be propagated through the network for each update weight, default 128.
-#' @param learning_rate  The learn rate for training process.
-#' @param momentum  (Float, 0~1) Momentum for moving average, default 0.9.
-#' @param wd (Float, 0~1) Weight decay, default 0.
+#' @param num_round A vector containing the number of iterations over training data to train the local and global model, default = c(6000, 6000).
+#' @param  array_batch_size (Integer) It defines number of samples that going to be propagated through the network for each update weight, default 30.
+#' @param learning_rate  A vector containing the learning rate for training process of local and global networks, respectively. The default value is c(0.01, 0.01).
+#' @param momentum  (Float, 0~1) Momentum for moving average, default 0.5.
+#' @param wd (Float, 0~1) Weight decay, default 0.00001
+#' data(wheat_example)
+#' Markers <- wheat_example$Markers
+#' y <- wheat_example$y
+#' cvSampleList <- cvIdx(length(y),10,1)
+#' # cross validation set
+#' cvIdx <- 1
+#' trainIdx <- cvSampleList[[cvIdx]]$trainIdx
+#' testIdx <- cvSampleList[[cvIdx]]$testIdx
+#' trainMat <- Markers[trainIdx,]
+#' trainPheno <- y[trainIdx]
+#' validIdx <- sample(1:length(trainIdx),floor(length(trainIdx)*0.1))
+#' validMat <- trainMat[validIdx,]
+#' validPheno <- trainPheno[validIdx]
+#' trainMat <- trainMat[-validIdx,]
+#' trainPheno <- trainPheno[-validIdx]
+#' testMat <- Markers[testIdx,]
+#' testPheno <- y[testIdx].
 #' @param randomseeds  Set the seed used by mxnet device-specific random number.
 #' @param initializer_idx  The initialization scheme for parameters.
 #' @param verbose  logical (default=TRUE) Specifies whether to print information on the iterations during training.
 #' @param \dots Parameters for construncting neural networks used in package "mxnet" (\url{http://mxnet.io/}).
-#'
-#' @author Siqi Liang
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @export
 #' @examples
 #' data(wheat_example)
 #' Markers <- wheat_example$Markers
 #' y <- wheat_example$y
-#' cvSampleList <- cvSampleIndex(length(y),10,1)
+#' cvSampleList <- cvIdx(length(y),10,1)
 #' # cross validation set
 #' cvIdx <- 1
 #' trainIdx <- cvSampleList[[cvIdx]]$trainIdx
@@ -90,20 +107,20 @@
 #'                    fullayer_act_type = fullayer_act_type,drop_float = drop_float)
 #'
 #' # Train a SMDNN model
-#' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 1000,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
-#'                     eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
+#' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 500,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
+#'                     eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
 #'                     momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
 
 
 
 
 SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,localtype = 'CNN',localFrame,globalFrame,device_type = "cpu",gpuNum = "max",
-                  eval_metric = "mae",num_round = 6000,array_batch_size= 10,learning_rate = 0.01,
-                  momentum = 0.5,wd = 0.000801 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
+                  eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
+                  momentum = 0.5,wd = 0.00001,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
   require(mxnet)
-  source('R/Train_localCNN.R')
-  source('R/Train_localFNN.R')
+  source('R/train_localCNN.R')
+  source('R/train_localFNN.R')
   # this function is used to evluate metrics provide a way to evaluate the performance of a learned model.
   evalfun <- switch(eval_metric,
                     accuracy = mx.metric.accuracy,
@@ -138,7 +155,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
                                  validMat = validMat_sub, validPheno = validPheno,
                                  type = type, markerImage = markerImage,
                                  cnnFrame = localFrame,device_type = device_type,gpuNum = gpuNum, eval_metric = eval_metric,
-                                 num_round = num_round,array_batch_size= array_batch_size,learning_rate = learning_rate,
+                                 num_round = num_round[1],array_batch_size= array_batch_size,learning_rate = learning_rate[1],
                                  momentum = momentum,wd = wd, randomseeds = randomseeds, initializer_idx = initializer_idx,
                                  verbose = verbose)
 
@@ -155,7 +172,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
                                  validMat = validMat_sub, validPheno = validPheno,
                                  type = type,
                                  fnnFrame = localFrame,device_type = device_type,gpuNum = gpuNum, eval_metric = eval_metric,
-                                 num_round = num_round,array_batch_size= array_batch_size,learning_rate = learning_rate,
+                                 num_round = num_round[1],array_batch_size= array_batch_size,learning_rate = learning_rate[1],
                                  momentum = momentum,wd = wd, randomseeds = randomseeds, initializer_idx = initializer_idx,
                                  verbose = verbose)
 
@@ -222,8 +239,8 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
   if(!is.null(randomseeds)){mx.set.seed(randomseeds)}
   print("Traing Global Network")
   globalnet <- mx.model.FeedForward.create(dnn_network, X=hidden_train, y=trainPheno,eval.data = eval.data,
-                                           ctx= device, num.round= num_round, array.batch.size=array_batch_size,
-                                           learning.rate=learning_rate, momentum=momentum, wd=wd,
+                                           ctx= device, num.round= num_round[2], array.batch.size=array_batch_size,
+                                           learning.rate=learning_rate[2], momentum=momentum, wd=wd,
                                            eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),
                                            verbose = verbose,
                                            epoch.end.callback=mx.callback.early.stop(bad.steps = 600,verbose = verbose))

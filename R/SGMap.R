@@ -3,6 +3,7 @@
 #' @usage SGMap(data)
 #' @param data: a vector containing the SNPs' ID e.g. "rs11316244"
 #' @return a dataframe which contains the SNPs with the corresponding genes
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @examples
 #' data <- c("rs149619941", "rs71509458")
 #' SGMap(data)

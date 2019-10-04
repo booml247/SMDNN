@@ -4,11 +4,12 @@
 #' @param SMDNN_model A list contains local and global networks obtaining from SMDNN function.
 #' @param subp A constant for splitting the features. It indicates how many features each subset contains after splitting the data e.g. the data originally contains 2000 features. By setting subp=500, the function split the orginal data into 4 subsets with each subset contains 500 features.
 #' @param localtype (String)  This parameter indicates what networks you would like to use for local networks. The default setting for type is CNN-convolutional neural network or FNN-Feed-forward Neural Network, respectively.
+#' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @examples
 #' data(wheat_example)
 #' Markers <- wheat_example$Markers
 #' y <- wheat_example$y
-#' cvSampleList <- cvSampleIndex(length(y),10,1)
+#' cvSampleList <- cvIdx(length(y),10,1)
 #' # cross validation set
 #' cvIdx <- 1
 #' trainIdx <- cvSampleList[[cvIdx]]$trainIdx
@@ -48,8 +49,8 @@
 #'                    fullayer_act_type = fullayer_act_type,drop_float = drop_float)
 #'
 #' # Train a SMDNN model
-#' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 1000,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
-#'                     eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
+#' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 500,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
+#'                     eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
 #'                     momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
 #'
 #' # Make prediction using the SMDNN model
