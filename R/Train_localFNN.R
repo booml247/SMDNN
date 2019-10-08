@@ -19,7 +19,7 @@
 #' @param  array_batch_size (Integer) It defines number of samples that going to be propagated through the network for each update weight, default 128.
 #' @param learning_rate  The learn rate for training process.
 #' @param momentum  (Float, 0~1) Momentum for moving average, default 0.9.
-#' @param wd (Float, 0~1) Weight decay, default 0.
+#' @param wd A vector containing the weight decay for local and global networks, respectively. Default c(0.00001,0.02)
 #' @param randomseeds  Set the seed used by mxnet device-specific random number.
 #' @param initializer_idx  The initialization scheme for parameters.
 #' @param verbose  logical (default=TRUE) Specifies whether to print information on the iterations during training.
@@ -54,7 +54,7 @@
 #'                 validMat = validMat,validPheno = validPheno, type = 'eps', markerImage = markerImage,
 #'                 fnnFrame = fnnFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
 #'                 num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
-#'                 momentum = 0.5,wd = 0.00001, randomseeds = 0,initializer_idx = 0.01,
+#'                 momentum = 0.5,wd = c(0.00001,0.02), randomseeds = 0,initializer_idx = 0.01,
 #'                 verbose =TRUE)
 #' localFNN <- trainlocalFNN[1]
 #' hidden_train <- trainlocalFNN[2]
@@ -63,7 +63,7 @@
 
 train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame,device_type = "cpu",gpuNum = "max",
                            eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
-                           momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
+                           momentum = 0.5,wd = c(0.00001,0.02) ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
   require(mxnet)
 
@@ -76,6 +76,8 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   if(device_type == "cpu") { device <- mx.cpu()}
   if(device_type == "gpu") { ifelse(gpuNum == "max", device <- mx.gpu(),device <- lapply(0:(gpuNum -1), function(i) {  mx.gpu(i)}))}
 
+  trainMat <- data.matrix(trainMat)
+  validMat <- data.matrix(validMat)
   eval.data <- list(data=validMat, label=validPheno)
 
 
@@ -84,15 +86,7 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   fullayer_num_hidden <- fnnFrame$fullayer_num_hidden
   fullayer_act_type <- fnnFrame$fullayer_act_type
   fullayer_num <- length(fullayer_num_hidden)
-  if(fullayer_num - length(fullayer_act_type) != 1){
-    stop("Error: the last full connected layer don't need activation.")
-  }
-  if(fullayer_num_hidden[fullayer_num] != 1){
-    stop("Error: the last full connected layer's number of hidden nerurons must is one.")
-  }
-  if(length(drop_float)- fullayer_num != 1){
-    stop("Error:  the number of dropout layers must one more layer than the full connected  layers.")
-  }
+
 
   # set full connect frame
   data <- mx.symbol.Variable("data")
@@ -112,7 +106,6 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
       assign(paste0("fullconnect_Act",ss), mx.symbol.Activation(data= get(paste0("fullconnect_layer",ss)), act_type= fullayer_act_type[ss]))
       assign(paste0("drop_layer",ss),mx.symbol.Dropout(data= get(paste0("fullconnect_Act",ss)), p = drop_float[ss +1]))
     }
-
   }
   # performed below when more than one full connnect layer
   if(fullayer_num > 1){
@@ -121,6 +114,7 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   }
 
   if(type == "eps"){
+    # linear output layer
     fnn_network <- mx.symbol.LinearRegressionOutput(data= get(paste0("drop_layer",fullayer_num)))
   } else{
     # softmax output layer
@@ -128,7 +122,7 @@ train_localFNN <- function(trainMat,trainPheno,validMat,validPheno,type,fnnFrame
   }
 
   # Group some output layers for future analysis
-  out <- mx.symbol.Group(c(fullconnect_layer1, fullconnect_Act1, drop_layer1, fnn_network))
+  out <- mx.symbol.Group(c(fullconnect_layer3, fullconnect_Act3, drop_layer3, fnn_network))
   # Create an executor
   executor_train <- mx.simple.bind(symbol=out, data=dim(t(trainMat)), ctx=mx.cpu())
   executor_valid <- mx.simple.bind(symbol=out, data=dim(t(validMat)), ctx=mx.cpu())

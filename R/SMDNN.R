@@ -41,7 +41,7 @@
 #' @param  array_batch_size (Integer) It defines number of samples that going to be propagated through the network for each update weight, default 30.
 #' @param learning_rate  A vector containing the learning rate for training process of local and global networks, respectively. The default value is c(0.01, 0.01).
 #' @param momentum  (Float, 0~1) Momentum for moving average, default 0.5.
-#' @param wd (Float, 0~1) Weight decay, default 0.00001
+#' @param wd A vector containing the weight decay for local and global networks, respectively. Default c(0.00001,0.02).
 #' data(wheat_example)
 #' Markers <- wheat_example$Markers
 #' y <- wheat_example$y
@@ -109,14 +109,14 @@
 #' # Train a SMDNN model
 #' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 500,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
 #'                     eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
-#'                     momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
+#'                     momentum = 0.5,wd = c(0.00001,0.02) ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
 
 
 
 
 SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,localtype = 'CNN',localFrame,globalFrame,device_type = "cpu",gpuNum = "max",
                   eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
-                  momentum = 0.5,wd = 0.00001,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
+                  momentum = 0.5,wd = c(0.00001, 0.02),randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
   require(mxnet)
   source('R/train_localCNN.R')
@@ -156,7 +156,24 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
                                  type = type, markerImage = markerImage,
                                  cnnFrame = localFrame,device_type = device_type,gpuNum = gpuNum, eval_metric = eval_metric,
                                  num_round = num_round[1],array_batch_size= array_batch_size,learning_rate = learning_rate[1],
-                                 momentum = momentum,wd = wd, randomseeds = randomseeds, initializer_idx = initializer_idx,
+                                 momentum = momentum,wd = wd[1], randomseeds = randomseeds, initializer_idx = initializer_idx,
+                                 verbose = verbose)
+
+      #Save local networks
+      assign(paste0("localnet",nn), localnet[1])
+      SMDNN_model <- append(SMDNN_model, eval(parse(text =paste0("localnet",nn))))
+
+      #extract and merge the last hidden layer of local networks
+      hidden_train <- rbind(hidden_train, as.array(localnet[[2]][[1]]))
+      hidden_valid <- rbind(hidden_valid, as.array(localnet[[3]][[1]]))
+    } else if(localtype == 'FNN'){
+      #####################FNN######################
+      localnet <- train_localFNN(trainMat = trainMat_sub, trainPheno = trainPheno,
+                                 validMat = validMat_sub, validPheno = validPheno,
+                                 type = type,
+                                 fnnFrame = localFrame,device_type = device_type,gpuNum = gpuNum, eval_metric = eval_metric,
+                                 num_round = num_round[1],array_batch_size= array_batch_size,learning_rate = learning_rate[1],
+                                 momentum = momentum,wd = wd[1], randomseeds = randomseeds, initializer_idx = initializer_idx,
                                  verbose = verbose)
 
       #Save local networks
@@ -167,22 +184,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
       hidden_train <- rbind(hidden_train, as.array(localnet[[2]][[1]]))
       hidden_valid <- rbind(hidden_valid, as.array(localnet[[3]][[1]]))
     } else{
-      #####################FNN######################
-      localnet <- train_localFNN(trainMat = trainMat_sub, trainPheno = trainPheno,
-                                 validMat = validMat_sub, validPheno = validPheno,
-                                 type = type,
-                                 fnnFrame = localFrame,device_type = device_type,gpuNum = gpuNum, eval_metric = eval_metric,
-                                 num_round = num_round[1],array_batch_size= array_batch_size,learning_rate = learning_rate[1],
-                                 momentum = momentum,wd = wd, randomseeds = randomseeds, initializer_idx = initializer_idx,
-                                 verbose = verbose)
-
-      #Save local networks
-      assign(paste0("localnet",nn), localnet[1])
-      SMDNN_model <- append(SMDNN_model, eval(parse(text =paste0("localnet",nn))))
-
-      #extract and merge the last hidden layer of local networks
-      hidden_train <- rbind(hidden_train, as.array(localnet[[2]][[1]]))
-      hidden_valid <- rbind(hidden_valid, as.array(localnet[[3]][[1]]))
+      stop("Error: the local networks must be FNN or CNN.")
     }
   }
 
@@ -196,9 +198,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
   fullayer_num_hidden <- globalFrame$fullayer_num_hidden
   fullayer_act_type <- globalFrame$fullayer_act_type
   fullayer_num <- length(fullayer_num_hidden)
-  if(fullayer_num - length(fullayer_act_type) != 1){
-    stop("Error: the last full connected layer don't need activation.")
-  }
+
 
   if(length(drop_float)- fullayer_num != 1){
     stop("Error:  the number of dropout layers must one more layer than the full connected  layers.")
@@ -240,7 +240,7 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
   print("Traing Global Network")
   globalnet <- mx.model.FeedForward.create(dnn_network, X=hidden_train, y=trainPheno,eval.data = eval.data,
                                            ctx= device, num.round= num_round[2], array.batch.size=array_batch_size,
-                                           learning.rate=learning_rate[2], momentum=momentum, wd=wd,
+                                           learning.rate=learning_rate[2], momentum=momentum, wd=wd[2],
                                            eval.metric= evalfun,initializer = mx.init.uniform(initializer_idx),
                                            verbose = verbose,
                                            epoch.end.callback=mx.callback.early.stop(bad.steps = 600,verbose = verbose))

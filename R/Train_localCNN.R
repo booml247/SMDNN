@@ -30,7 +30,7 @@
 #' @param  array_batch_size (Integer) It defines number of samples that going to be propagated through the network for each update weight, default 128.
 #' @param learning_rate  The learn rate for training process.
 #' @param momentum  (Float, 0~1) Momentum for moving average, default 0.9.
-#' @param wd (Float, 0~1) Weight decay, default 0.
+#' @param wd A vector containing the weight decay for local and global networks, respectively. Default c(0.00001,0.02)
 #' @param randomseeds  Set the seed used by mxnet device-specific random number.
 #' @param initializer_idx  The initialization scheme for parameters.
 #' @param verbose  logical (default=TRUE) Specifies whether to print information on the iterations during training.
@@ -76,7 +76,7 @@
 #'                 validMat = validMat,validPheno = validPheno, type = 'eps', markerImage = markerImage,
 #'                 cnnFrame = cnnFrame,device_type = "cpu",gpuNum = 1, eval_metric = "mae",
 #'                 num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
-#'                 momentum = 0.5,wd = 0.00001, randomseeds = 0,initializer_idx = 0.01,
+#'                 momentum = 0.5,wd = c(0.00001,0.02), randomseeds = 0,initializer_idx = 0.01,
 #'                 verbose =TRUE)
 #' localCNN <- trainlocalCNN[1]
 #' hidden_train <- trainlocalCNN[2]
@@ -85,7 +85,7 @@
 
 train_localCNN <- function(trainMat,trainPheno,validMat,validPheno,type,markerImage = NULL,cnnFrame,device_type = "cpu",gpuNum = "max",
                               eval_metric = "mae",num_round = 6000,array_batch_size= 30,learning_rate = 0.01,
-                              momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
+                              momentum = 0.5,wd = c(0.00001,0.02),randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE...){
   requireNamespace("mxnet")
   require(mxnet)
   # demo.metric.mae <- mx.metric.custom("mae", function(label, pred) {

@@ -51,13 +51,13 @@
 #' # Train a SMDNN model
 #' SMDNN_model <- SMDNN(trainMat,trainPheno,validMat,validPheno,type = "eps",subp = 500,localtype = 'CNN',cnnFrame,globalFrame,device_type = "cpu",gpuNum = "max",
 #'                     eval_metric = "mae",num_round = c(6000, 6000),array_batch_size= 30,learning_rate = c(0.01, 0.01),
-#'                     momentum = 0.5,wd = 0.00001 ,randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
+#'                     momentum = 0.5,wd = c(0.00001,0.02),randomseeds = NULL,initializer_idx = 0.01,verbose =TRUE)
 #'
 #' # Make prediction using the SMDNN model
-#' pred_test <- SMpred(SMDNN_model, testMat)
+#' pred_test <- SMpred(SMDNN_model, testMat, subp = 500)
 
 
-SMpred <- function(testMat, SMDNN_model, subp, localtype = 'CNN'){
+SMpred <- function(SMDNN_model, testMat, subp, localtype = 'CNN'){
   #extract the last hidden layer from the local networks
   hidden_test <- c()
   local_num <- length(SMDNN_model) - 1
