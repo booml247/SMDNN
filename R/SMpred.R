@@ -61,21 +61,23 @@ SMpred <- function(SMDNN_model, testMat, subp, localtype = 'CNN'){
   #extract the last hidden layer from the local networks
   hidden_test <- c()
   local_num <- length(SMDNN_model) - 1
-  for(i in 1:local_num){
-    print(paste0("Retrieving the hidden layer of Local Network: ", i))
-    #Split the Features
-    if(i != local_num){
-      testMat_sub <- testMat[,((i-1)*subp+1):(i*subp)]
+  for(i in local_num){
+    if(local_num == 1){
+      testMat_sub <- testMat
     }else{
-      testMat_sub <- testMat[,((i-1)*subp+1):dim(testMat)[2]]
+      print(paste0("Retrieving the hidden layer of Local Network: ", i))
+      #Split the Features
+      if(i != local_num){
+        testMat_sub <- testMat[,((i-1)*subp+1):(i*subp)]
+      }else{
+        testMat_sub <- testMat[,((i-1)*subp+1):dim(testMat)[2]]
+      }
     }
-
-    testMat_sub <- data.matrix(t(testMat_sub))
-    dim(testMat_sub) <- c(1, nrow(testMat_sub),1,ncol(testMat_sub))
 
 
     localnet <- SMDNN_model[[i]]
     if(localtype == 'CNN'){
+      dim(testMat_sub) <- c(1, nrow(testMat_sub),1,ncol(testMat_sub))
       #For the case that the local nets are CNN
       internals <- localnet$symbol$get.internals()
       internal_num <- length(internals$outputs)
