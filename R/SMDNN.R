@@ -138,14 +138,21 @@ SMDNN <- function(trainMat,trainPheno,validMat,validPheno,type = "eps",subp,loca
   nn_num = floor(dim(trainMat)[2]/subp)
 
   for(nn in 1:nn_num){
-    print(paste0("Training Local Network: ", nn))
-    #Split the Features
-    if(nn != nn_num){
-      trainMat_sub <- trainMat[,((nn-1)*subp+1):(nn*subp)]
-      validMat_sub <- validMat[,((nn-1)*subp+1):(nn*subp)]
+    if(nn_num == 0){
+      print(paste0("Training Local Network: ", nn))
+      warning('subp is greater than the dimension of the features!!')
+      trainMat_sub <- trainMat
+      validMat_sub <- validMat
     }else{
-      trainMat_sub <- trainMat[,((nn-1)*subp+1):dim(trainMat)[2]]
-      validMat_sub <- validMat[,((nn-1)*subp+1):dim(trainMat)[2]]
+      print(paste0("Training Local Network: ", nn))
+      #Split the Features
+      if(nn != nn_num){
+        trainMat_sub <- trainMat[,((nn-1)*subp+1):(nn*subp)]
+        validMat_sub <- validMat[,((nn-1)*subp+1):(nn*subp)]
+      }else{
+        trainMat_sub <- trainMat[,((nn-1)*subp+1):dim(trainMat)[2]]
+        validMat_sub <- validMat[,((nn-1)*subp+1):dim(trainMat)[2]]
+      }
     }
 
 
