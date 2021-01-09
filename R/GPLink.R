@@ -2,7 +2,7 @@
 #' @description GPLink is a function which finds the links between SNPs and Genes for Homo Sapiens.
 #' @usage GPLink(data)
 #' @param data: a vector containing the SNPs' ID e.g. "rs11316244"
-#' @param systemCode (character) The BridgeDb code associated with the data source or system (default: "En"), e.g., En (Ensembl), L (Entrez), Ch (HMDB), etc. See column two of https://github.com/bridgedb/BridgeDb/blob/master/org.bridgedb.bio/resources/org/bridgedb/bio/datasources.txt.
+#' @param systemCode (character) The BridgeDb code associated with the data source or system (default: "En"), e.g., En (Ensembl), L (Entrez), Ch (HMDB), etc. See column two of https://github.com/bridgedb/BridgeDb/blob/master/org.bridgedb.bio/src/main/resources/org/bridgedb/bio/datasources.tsv.
 #' @author Siqi Liang, Wei-Heng Huang, Faming Liang
 #' @return a matrix which descirbes the linkage bwtween SNPs and the genes
 #' @examples
